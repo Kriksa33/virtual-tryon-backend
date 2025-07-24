@@ -38,15 +38,29 @@ app.post("/tryon", async (req, res) => {
     console.log("📤 Replicate prediction response:", prediction);
 
     let result = null;
-    while (!result && prediction.status !== "failed") {
-      const check = await fetch(
-        `https://api.replicate.com/v1/predictions/${prediction.id}`,
-        {
-          headers: {
-            Authorization: `Token ${replicateToken}`,
-          },
-        }
-      );
+let status = prediction.status;
+let tries = 0;
+
+while (!result && status !== "failed" && tries < 15) {
+  console.log(`⏳ Try ${tries + 1}: status = ${status}`);
+
+  const check = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+    headers: { Authorization: `Token ${replicateToken}` }
+  });
+
+  const data = await check.json();
+  status = data.status;
+
+  if (data.output) {
+    result = data.output[0]; // <- if it's an array
+    console.log("✅ Final output:", result);
+  } else {
+    console.log("🕒 Still waiting...");
+    await new Promise(r => setTimeout(r, 2000));
+  }
+
+  tries++;
+}
 
       const data = await check.json();
       if (data.output) {
